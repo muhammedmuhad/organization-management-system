@@ -128,3 +128,135 @@
     @apply font-sans;
   }
 }
+/* =========================================================
+   MEMBERSHIP RECEIPT PRINTING
+   ========================================================= */
+
+@media print {
+  /* -------------------------------------------------------
+     Hide the entire application initially
+  ------------------------------------------------------- */
+
+  body * {
+    visibility: hidden !important;
+  }
+
+  /* -------------------------------------------------------
+     Show only the receipt
+  ------------------------------------------------------- */
+
+  #printable-receipt,
+  #printable-receipt * {
+    visibility: visible !important;
+  }
+
+  /* -------------------------------------------------------
+     Position receipt at the top of the printed page
+  ------------------------------------------------------- */
+
+  #printable-receipt {
+    position: absolute !important;
+
+    left: 0 !important;
+    top: 0 !important;
+
+    width: 100% !important;
+
+    margin: 0 !important;
+
+    padding: 0 !important;
+
+    border: 0 !important;
+
+    border-radius: 0 !important;
+
+    box-shadow: none !important;
+
+    background: white !important;
+  }
+
+  /* -------------------------------------------------------
+     Hide interactive elements
+  ------------------------------------------------------- */
+
+  .print\:hidden {
+    display: none !important;
+  }
+
+  /* -------------------------------------------------------
+     Receipt appearance
+  ------------------------------------------------------- */
+
+  .receipt-printable {
+    color: #000 !important;
+    background: #fff !important;
+  }
+
+  .receipt-printable * {
+    color: #000 !important;
+  }
+
+  /* -------------------------------------------------------
+     Branding
+  ------------------------------------------------------- */
+
+  .receipt-branding {
+    padding-top: 20px !important;
+    padding-bottom: 20px !important;
+  }
+
+  /* -------------------------------------------------------
+     Remove screen-only background colors
+  ------------------------------------------------------- */
+
+  .receipt-printable .bg-gray-50,
+  .receipt-printable .bg-green-50 {
+    background: white !important;
+  }
+
+  /* -------------------------------------------------------
+     Tables
+  ------------------------------------------------------- */
+
+  .receipt-printable table {
+    width: 100% !important;
+    border-collapse: collapse !important;
+  }
+
+  .receipt-printable th,
+  .receipt-printable td {
+    border-bottom: 1px solid #d1d5db !important;
+  }
+
+  .receipt-printable tr {
+    break-inside: avoid !important;
+    page-break-inside: avoid !important;
+  }
+
+  /* -------------------------------------------------------
+     Footer
+  ------------------------------------------------------- */
+
+  .receipt-footer {
+    padding-top: 24px !important;
+    padding-bottom: 24px !important;
+  }
+
+  /* -------------------------------------------------------
+     Prevent receipt sections from splitting unnecessarily
+  ------------------------------------------------------- */
+
+  .receipt-printable {
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+}
+
+/* ---------------------------------------------------------
+   Print page settings
+--------------------------------------------------------- */
+
+@page {
+  size: A4;
+  margin: 12mm;
+}

@@ -1,13 +1,786 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
-// Get a free hosted Postgres database in seconds: `npx create-db`
-
 generator client {
-  provider = "prisma-client"
-  output   = "../src/generated/prisma"
+  provider = "prisma-client-js"
 }
 
 datasource db {
   provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum UserRole {
+  ADMIN
+  HOUSEHOLD
+}
+
+enum UserStatus {
+  ACTIVE
+  INACTIVE
+}
+
+enum Gender {
+  MALE
+  FEMALE
+}
+
+enum BloodGroup {
+  A_POSITIVE
+  A_NEGATIVE
+  B_POSITIVE
+  B_NEGATIVE
+  AB_POSITIVE
+  AB_NEGATIVE
+  O_POSITIVE
+  O_NEGATIVE
+}
+
+enum MaritalStatus {
+  SINGLE
+  MARRIED
+  DIVORCED
+  WIDOWED
+}
+
+enum PaymentStatus {
+  PENDING
+  PARTIAL
+  PAID
+}
+
+enum NotificationChannel {
+  APP
+  SMS
+}
+
+enum NotificationStatus {
+  PENDING
+  SENT
+  FAILED
+}
+
+enum EventStatus {
+  OPEN
+  COMPLETED
+  CANCELLED
+}
+
+enum EventTransferDirection {
+  TO_GENERAL_FUND
+  FROM_GENERAL_FUND
+}
+
+enum ApprovalStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+enum ReceiptPurpose {
+  MONTHLY_MEMBERSHIP
+  NIKAH_HOUSE_WARMING
+  RENT
+  CUSTOM
+}
+
+model User {
+  id           String     @id @default(cuid())
+  fullName     String
+  username     String     @unique
+  email        String?    @unique
+  mobile       String     @unique
+  passwordHash String
+  role         UserRole   @default(ADMIN)
+  status       UserStatus @default(ACTIVE)
+  lastLoginAt  DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  householdsCreated             Household[]            @relation("HouseholdCreatedBy")
+  membershipReceiptsCollected   MembershipReceipt[]    @relation("MembershipReceiptCollectedBy")
+  incomesCreated                Income[]               @relation("IncomeCreatedBy")
+  expensesCreated               Expense[]              @relation("ExpenseCreatedBy")
+  eventsCreated                 Event[]                @relation("EventCreatedBy")
+  eventCollectionsCreated       EventCollection[]      @relation("EventCollectionCreatedBy")
+  eventExpensesCreated          EventExpense[]         @relation("EventExpenseCreatedBy")
+  eventTransfersCreated         EventTransfer[]        @relation("EventTransferCreatedBy")
+  notificationsCreated          Notification[]         @relation("NotificationCreatedBy")
+  profileUpdateRequestsAsked    ProfileUpdateRequest[] @relation("ProfileUpdateRequestRequestedBy")
+  profileUpdateRequestsApproved ProfileUpdateRequest[] @relation("ProfileUpdateRequestApprovedBy")
+  auditLogsPerformed            AuditLog[]             @relation("AuditLogPerformedBy")
+  fileUploads                   FileUpload[]           @relation("FileUploadUploadedBy")
+
+  @@index([mobile])
+  @@map("users")
+}
+
+model RelationshipMaster {
+  id           String  @id @default(cuid())
+  name         String  @unique
+  description  String?
+  displayOrder Int     @default(0)
+  isActive     Boolean @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  members HouseholdMember[]
+
+  @@map("relationship_master")
+}
+
+model OccupationMaster {
+  id           String  @id @default(cuid())
+  name         String  @unique
+  description  String?
+  displayOrder Int     @default(0)
+  isActive     Boolean @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  members HouseholdMember[]
+
+  @@map("occupation_master")
+}
+
+model BloodGroupMaster {
+  id           String  @id @default(cuid())
+  name         String  @unique
+  description  String?
+  displayOrder Int     @default(0)
+  isActive     Boolean @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  members HouseholdMember[]
+
+  @@map("blood_group_master")
+}
+
+model HouseholdStatusMaster {
+  id           String  @id @default(cuid())
+  name         String  @unique
+  description  String?
+  displayOrder Int     @default(0)
+  isActive     Boolean @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  households Household[]
+
+  @@map("household_status_master")
+}
+
+model Household {
+  id               String  @id @default(cuid())
+  householdCode    String  @unique
+  displayOrder     Int     @default(0)
+
+  houseNumber      String?
+  houseName        String
+  address          String
+  emergencyContact String?
+
+  statusId String
+
+  isArchived Boolean   @default(false)
+  archivedAt DateTime?
+
+  createdById String
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  status HouseholdStatusMaster @relation(fields: [statusId], references: [id])
+
+  createdBy User @relation("HouseholdCreatedBy", fields: [createdById], references: [id])
+
+  members                HouseholdMember[]
+  receipts               MembershipReceipt[]
+  profileUpdateRequests  ProfileUpdateRequest[]
+  burialRecords          BurialRecord[]
+  notificationRecipients NotificationRecipient[]
+  eventCollections       EventCollection[]
+
+  @@index([householdCode])
+  @@index([displayOrder])
+  @@index([houseNumber])
+  @@index([statusId])
+  @@index([createdById])
+  @@map("households")
+}
+
+model HouseholdMember {
+  id String @id @default(cuid())
+
+  householdId    String
+  relationshipId String
+  occupationId   String?
+  bloodGroupId   String?
+
+  fullName      String
+  gender        Gender
+  bloodGroup    BloodGroup?
+  maritalStatus MaritalStatus
+  dateOfBirth   DateTime?
+  mobile        String?
+  photoUrl      String?
+
+  // Only ONE HouseholdMember per Household may have isHouseholdHead = true.
+  // This rule is enforced in application business logic.
+  isHouseholdHead Boolean @default(false)
+  isActive        Boolean @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  household     Household          @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  relationship  RelationshipMaster @relation(fields: [relationshipId], references: [id])
+  occupation    OccupationMaster?  @relation(fields: [occupationId], references: [id])
+  bloodGroupRel BloodGroupMaster?  @relation(fields: [bloodGroupId], references: [id])
+
+  @@index([householdId])
+  @@index([relationshipId])
+  @@index([occupationId])
+  @@index([bloodGroupId])
+  @@index([mobile])
+  @@map("household_members")
+}
+
+model PaymentCategoryMaster {
+  id           String  @id @default(cuid())
+  name         String  @unique
+  description  String?
+  displayOrder Int     @default(0)
+  isActive     Boolean @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  receiptItems MembershipReceiptItem[]
+
+  @@map("payment_category_master")
+}
+
+model IncomeCategoryMaster {
+  id           String  @id @default(cuid())
+  name         String  @unique
+  description  String?
+  displayOrder Int     @default(0)
+  isActive     Boolean @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  incomes          Income[]
+  eventCollections EventCollection[]
+
+  @@map("income_category_master")
+}
+
+model ExpenseCategoryMaster {
+  id           String  @id @default(cuid())
+  name         String  @unique
+  description  String?
+  displayOrder Int     @default(0)
+  isActive     Boolean @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  expenses      Expense[]
+  eventExpenses EventExpense[]
+
+  @@map("expense_category_master")
+}
+
+model MembershipReceipt {
+  id              String @id @default(cuid())
+  receiptNumber   String @unique
+  receiptSequence Int    @unique @default(autoincrement())
+
+  purpose ReceiptPurpose @default(MONTHLY_MEMBERSHIP)
+
+  householdId String?
+
+  // Used only when purpose = CUSTOM
+  customName    String?
+  customPurpose String?
+
+  receiptDate   DateTime
+  totalAmount   Decimal       @db.Decimal(12, 2)
+  status        PaymentStatus @default(PENDING)
+  remarks       String?
+  collectedById String
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  household   Household? @relation(fields: [householdId], references: [id])
+  collectedBy User       @relation("MembershipReceiptCollectedBy", fields: [collectedById], references: [id])
+
+  items MembershipReceiptItem[]
+
+  @@index([receiptNumber])
+  @@index([receiptSequence])
+  @@index([receiptDate])
+  @@index([householdId])
+  @@index([collectedById])
+  @@index([status])
+  @@index([purpose])
+  @@map("membership_receipts")
+}
+
+model MembershipReceiptItem {
+  id                String  @id @default(cuid())
+  receiptId         String
+  paymentCategoryId String?
+  year              Int?
+  month             Int?
+  amount            Decimal @db.Decimal(12, 2)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  receipt         MembershipReceipt      @relation(fields: [receiptId], references: [id], onDelete: Cascade)
+  paymentCategory PaymentCategoryMaster? @relation(fields: [paymentCategoryId], references: [id])
+
+  @@index([receiptId])
+  @@index([paymentCategoryId])
+  @@index([year])
+  @@index([month])
+  @@map("membership_receipt_items")
+}
+
+model Income {
+  id            String   @id @default(cuid())
+  categoryId    String
+  amount        Decimal  @db.Decimal(12, 2)
+  incomeDate    DateTime
+  description   String?
+  receiptNumber String?
+  createdById   String
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  category  IncomeCategoryMaster @relation(fields: [categoryId], references: [id])
+  createdBy User                 @relation("IncomeCreatedBy", fields: [createdById], references: [id])
+
+  @@index([incomeDate])
+  @@index([categoryId])
+  @@index([createdById])
+  @@map("income")
+}
+
+model Expense {
+  id          String   @id @default(cuid())
+  categoryId  String
+  amount      Decimal  @db.Decimal(12, 2)
+  expenseDate DateTime
+  description String?
+  billNumber  String?
+  createdById String
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  category  ExpenseCategoryMaster @relation(fields: [categoryId], references: [id])
+  createdBy User                  @relation("ExpenseCreatedBy", fields: [createdById], references: [id])
+
+  @@index([expenseDate])
+  @@index([categoryId])
+  @@index([createdById])
+  @@map("expense")
+}
+
+model Event {
+  id          String  @id @default(cuid())
+  categoryId  String
+  title       String
+  description String?
+
+  // Legacy fields retained for backward compatibility with existing code/data.
+  // New event finance logic should calculate totals from collections/expenses.
+  year            Int
+  eventDate       DateTime
+  venue           String?
+  amountCollected Decimal  @db.Decimal(12, 2)
+  totalExpense    Decimal  @db.Decimal(12, 2)
+
+  // New scheduling fields. Optional so existing records remain valid.
+  startDate DateTime?
+  endDate   DateTime?
+  startTime String?
+  endTime   String?
+
+  status      EventStatus @default(OPEN)
+  closedAt    DateTime?
+  createdById String
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  category  EventCategoryMaster @relation(fields: [categoryId], references: [id])
+  createdBy User                @relation("EventCreatedBy", fields: [createdById], references: [id])
+
+  collections EventCollection[]
+  expenses    EventExpense[]
+  transfers   EventTransfer[]
+
+  @@index([eventDate])
+  @@index([startDate])
+  @@index([endDate])
+  @@index([categoryId])
+  @@index([createdById])
+  @@index([status])
+  @@map("events")
+}
+
+model EventCollection {
+  id      String @id @default(cuid())
+  eventId String
+
+  // Optional for backward compatibility with existing collection records.
+  categoryId   String?
+  householdId  String?
+  sourceName   String
+  amount       Decimal  @db.Decimal(12, 2)
+  receivedDate DateTime
+  referenceNo  String?
+  remarks      String?
+
+  createdById String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  event     Event                 @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  category  IncomeCategoryMaster? @relation(fields: [categoryId], references: [id])
+  household Household?            @relation(fields: [householdId], references: [id], onDelete: SetNull)
+  createdBy User?                 @relation("EventCollectionCreatedBy", fields: [createdById], references: [id])
+
+  @@index([eventId])
+  @@index([categoryId])
+  @@index([householdId])
+  @@index([receivedDate])
+  @@index([createdById])
+  @@map("event_collections")
+}
+
+model EventExpense {
+  id      String @id @default(cuid())
+  eventId String
+
+  // Optional for backward compatibility with existing expense records.
+  categoryId   String?
+  expenseTitle String
+  amount       Decimal  @db.Decimal(12, 2)
+  expenseDate  DateTime
+  billNumber   String?
+  remarks      String?
+
+  createdById String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  event     Event                  @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  category  ExpenseCategoryMaster? @relation(fields: [categoryId], references: [id])
+  createdBy User?                  @relation("EventExpenseCreatedBy", fields: [createdById], references: [id])
+
+  @@index([eventId])
+  @@index([categoryId])
+  @@index([expenseDate])
+  @@index([createdById])
+  @@map("event_expenses")
+}
+
+model EventTransfer {
+  id      String @id @default(cuid())
+  eventId String
+
+  // Optional so old transfer rows remain valid.
+  direction    EventTransferDirection?
+  amount       Decimal                 @db.Decimal(12, 2)
+  transferDate DateTime
+  referenceNo  String?
+  remarks      String?
+
+  createdById String?
+
+  // Links to the corresponding General Fund ledger transaction.
+  // TO_GENERAL_FUND       -> generalIncomeId
+  // FROM_GENERAL_FUND     -> generalExpenseId
+  generalIncomeId  String?
+  generalExpenseId String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  event     Event @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  createdBy User? @relation("EventTransferCreatedBy", fields: [createdById], references: [id])
+
+  @@index([eventId])
+  @@index([direction])
+  @@index([transferDate])
+  @@index([createdById])
+  @@map("event_transfers")
+}
+
+model BurialRecord {
+  id           String   @id @default(cuid())
+  householdId  String
+  deceasedName String
+  dateOfDeath  DateTime
+  burialDate   DateTime
+  remarks      String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  household Household @relation(fields: [householdId], references: [id], onDelete: Cascade)
+
+  @@index([householdId])
+  @@index([dateOfDeath])
+  @@map("burial_records")
+}
+
+model Notification {
+  id          String              @id @default(cuid())
+  title       String
+  message     String
+  channel     NotificationChannel
+  typeId      String
+  status      NotificationStatus  @default(PENDING)
+  createdById String
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  type      NotificationTypeMaster @relation(fields: [typeId], references: [id])
+  createdBy User                   @relation("NotificationCreatedBy", fields: [createdById], references: [id])
+
+  recipients NotificationRecipient[]
+
+  @@index([typeId])
+  @@index([createdById])
+  @@index([status])
+  @@map("notifications")
+}
+
+model NotificationRecipient {
+  id             String    @id @default(cuid())
+  notificationId String
+  householdId    String
+  deliveredAt    DateTime?
+  isRead         Boolean   @default(false)
+  readAt         DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  notification Notification @relation(fields: [notificationId], references: [id], onDelete: Cascade)
+  household    Household    @relation(fields: [householdId], references: [id], onDelete: Cascade)
+
+  @@index([notificationId])
+  @@index([householdId])
+  @@map("notification_recipients")
+}
+
+model ProfileUpdateRequest {
+  id            String         @id @default(cuid())
+  householdId   String
+  requestType   String
+  description   String?
+  status        ApprovalStatus @default(PENDING)
+  remarks       String?
+  requestedById String
+  approvedById  String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  household   Household @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  requestedBy User      @relation("ProfileUpdateRequestRequestedBy", fields: [requestedById], references: [id])
+  approvedBy  User?     @relation("ProfileUpdateRequestApprovedBy", fields: [approvedById], references: [id])
+
+  @@index([householdId])
+  @@index([requestedById])
+  @@index([approvedById])
+  @@index([status])
+  @@map("profile_update_requests")
+}
+
+model Setting {
+  id          String  @id @default(cuid())
+  key         String  @unique
+  value       String
+  description String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("settings")
+}
+
+model AuditLog {
+  id            String  @id @default(cuid())
+  tableName     String
+  recordId      String
+  action        String
+  oldValue      Json?
+  newValue      Json?
+  performedById String?
+
+  createdAt DateTime @default(now())
+
+  performedBy User? @relation("AuditLogPerformedBy", fields: [performedById], references: [id])
+
+  @@index([tableName])
+  @@index([recordId])
+  @@index([performedById])
+  @@map("audit_logs")
+}
+
+model FileUpload {
+  id           String @id @default(cuid())
+  fileName     String
+  originalName String
+  mimeType     String
+  filePath     String
+  fileSize     Int
+  uploadedById String
+
+  createdAt DateTime @default(now())
+
+  uploadedBy User @relation("FileUploadUploadedBy", fields: [uploadedById], references: [id])
+
+  @@index([uploadedById])
+  @@map("file_uploads")
+}
+
+model SystemConfiguration {
+  id            String  @id @default(cuid())
+  mahalluName   String
+  address       String?
+  phone         String?
+  email         String?
+  logoUrl       String?
+  receiptPrefix String  @default("RCPT")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("system_configuration")
+}
+
+model EventCategoryMaster {
+  id           String  @id @default(cuid())
+  name         String  @unique
+  description  String?
+  displayOrder Int     @default(0)
+  isActive     Boolean @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  events Event[]
+
+  @@map("event_category_master")
+}
+
+model NotificationTypeMaster {
+  id           String  @id @default(cuid())
+  name         String  @unique
+  description  String?
+  displayOrder Int     @default(0)
+  isActive     Boolean @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  notifications Notification[]
+
+  @@map("notification_type_master")
+}
+
+model CommitteeProfile {
+  id String @id @default(cuid())
+
+  presidentName    String?
+  presidentAddress String?
+  presidentPhone   String?
+  presidentPhoto   String?
+
+  generalSecretaryName    String?
+  generalSecretaryAddress String?
+  generalSecretaryPhone   String?
+  generalSecretaryPhoto   String?
+
+  treasurerName    String?
+  treasurerAddress String?
+  treasurerPhone   String?
+  treasurerPhoto   String?
+
+  vicePresident1Name    String?
+  vicePresident1Address String?
+  vicePresident1Phone   String?
+  vicePresident1Photo   String?
+
+  vicePresident2Name    String?
+  vicePresident2Address String?
+  vicePresident2Phone   String?
+  vicePresident2Photo   String?
+
+  vicePresident3Name    String?
+  vicePresident3Address String?
+  vicePresident3Phone   String?
+  vicePresident3Photo   String?
+
+  secretary1Name    String?
+  secretary1Address String?
+  secretary1Phone   String?
+  secretary1Photo   String?
+
+  secretary2Name    String?
+  secretary2Address String?
+  secretary2Phone   String?
+  secretary2Photo   String?
+
+  secretary3Name    String?
+  secretary3Address String?
+  secretary3Phone   String?
+  secretary3Photo   String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("committee_profile")
+}
+
+enum FacultyStaffType {
+  TEACHING
+  NON_TEACHING
+}
+
+model FacultyStaff {
+  id   String           @id @default(cuid())
+  type FacultyStaffType
+
+  name    String?
+  address String?
+  phone   String?
+  photo   String?
+
+  displayOrder Int @default(0)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([type])
+  @@index([displayOrder])
+  @@map("faculty_staff")
 }
